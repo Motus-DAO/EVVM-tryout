@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Hardhat
+cache/
+artifacts/
+typechain-types/
+coverage/
+coverage.json
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Frontend
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.production.local
+frontend/.env.development.local
+
+# Testnet Contracts (submodule)
+Testnet-Contracts/broadcast/
+Testnet-Contracts/cache/
+Testnet-Contracts/.env
+Testnet-Contracts/.env.local
+
+# Deployment
+deployments/
+.openzeppelin/
+

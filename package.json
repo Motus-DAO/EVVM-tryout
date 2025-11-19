@@ -1,0 +1,43 @@
+{
+  "name": "healthcare-evvm-celo-motus",
+  "version": "0.1.0",
+  "description": "Healthcare EVVM on Celo with Motus Name Service",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy-local.ts --network localhost",
+    "setup:evvm:local": "hardhat run scripts/setup-evvm-local.ts --network localhost",
+    "test:local": "hardhat run scripts/test-local.ts --network localhost",
+    "test:gasless:local": "hardhat run scripts/test-gasless-local.ts --network localhost",
+    "deploy:celoSepolia": "hardhat run scripts/deploy.ts --network celoSepolia",
+    "deploy:alfajores": "hardhat run scripts/deploy.ts --network alfajores",
+    "deploy:mainnet": "hardhat run scripts/deploy.ts --network celo",
+    "register-name": "hardhat run scripts/register-name.ts --network celoSepolia",
+    "register-name:gerry": "NAME=gerry hardhat run scripts/register-name.ts --network celoSepolia",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build"
+  },
+  "keywords": [
+    "evvm",
+    "celo",
+    "healthcare",
+    "blockchain",
+    "name-service"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0",
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "@celo/contractkit": "^7.0.0",
+    "dotenv": "^16.3.0"
+  }
+}
+

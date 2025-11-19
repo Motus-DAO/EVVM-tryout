@@ -1,0 +1,252 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Orbitron:wght@400;500;600;700;800;900&family=Jura:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary Colors */
+  --color-bg: #0B101A;
+  --color-primary: #00E5FF;
+  --color-accent: #E144FF;
+  --color-secondary: #9D68FF;
+  --color-surface: rgba(255,255,255,0.06);
+  --color-text: rgba(255,255,255,0.9);
+  
+  /* Holographic Glass System */
+  --bg-dark: #05070D;
+  --bg-panel: rgba(255,255,255,0.05);
+  --cyan: #00E5FF;
+  --lavender: #E144FF;
+  --silver: #A7B4C6;
+  --neon-blue: rgba(0,229,255,0.35);
+  --neon-purple: rgba(225,68,255,0.25);
+  --holo-gradient: linear-gradient(135deg, var(--cyan), var(--lavender), var(--silver));
+  
+  /* Enhanced Holographic System */
+  --electric-cyan: #00FFFF;
+  --vibrant-magenta: #FF00FF;
+  --deep-black: #000000;
+  --translucent-white: rgba(255, 255, 255, 0.15);
+  
+  /* Depth-based opacity layers */
+  --opacity-bg: 0.05;
+  --opacity-far: 0.15;
+  --opacity-mid: 0.20;
+  --opacity-near: 0.25;
+  --opacity-main: 0.30;
+  
+  /* Blur & Radius */
+  --blur: 20px;
+  --radius: 12px;
+  
+  /* Z-Index System */
+  --z-background-deep: -20;
+  --z-background-mid: -10;
+  --z-background-overlay: -5;
+  --z-content: 0;
+  --z-content-elevated: 10;
+  --z-modal: 50;
+  --z-loader: 100;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--color-bg);
+  min-height: 100vh;
+  color: var(--color-text);
+  overflow-x: hidden;
+}
+
+code {
+  font-family: var(--font-mono), source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Keyframe Animations */
+@keyframes holo-glow {
+  0% { opacity: 0.5; transform: translateX(-10%); }
+  50% { opacity: 1; transform: translateX(10%); }
+  100% { opacity: 0.5; transform: translateX(-10%); }
+}
+
+@keyframes holographic-scan {
+  0% { transform: translateY(-100%) rotateX(0deg); opacity: 0; }
+  50% { transform: translateY(0%) rotateX(0deg); opacity: 1; }
+  100% { transform: translateY(100%) rotateX(0deg); opacity: 0; }
+}
+
+@keyframes circuit-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+@keyframes neon-flicker {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  2% { opacity: 0.8; filter: brightness(1.2); }
+  4% { opacity: 1; filter: brightness(0.9); }
+  6% { opacity: 0.9; filter: brightness(1.1); }
+  8% { opacity: 1; filter: brightness(1); }
+}
+
+@keyframes float-panel {
+  0%, 100% { transform: translateY(0px) rotateZ(0deg); }
+  25% { transform: translateY(-8px) rotateZ(0.5deg); }
+  50% { transform: translateY(-4px) rotateZ(0deg); }
+  75% { transform: translateY(-12px) rotateZ(-0.5deg); }
+}
+
+@keyframes motion-blur-streak {
+  0% { transform: translateX(-200%) skewX(-20deg); opacity: 0; }
+  10% { transform: translateX(-100%) skewX(-15deg); opacity: 0.8; }
+  50% { transform: translateX(0%) skewX(0deg); opacity: 1; }
+  90% { transform: translateX(100%) skewX(15deg); opacity: 0.8; }
+  100% { transform: translateX(200%) skewX(20deg); opacity: 0; }
+}
+
+@keyframes edge-glow-pulse {
+  0%, 100% { 
+    box-shadow: 
+      0 0 20px rgba(0, 255, 255, 0.3),
+      0 0 40px rgba(0, 255, 255, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% { 
+    box-shadow: 
+      0 0 30px rgba(0, 255, 255, 0.5),
+      0 0 60px rgba(0, 255, 255, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes gradient-rotation {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes circuit-flow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Animation Utility Classes */
+.neon-flicker {
+  animation: neon-flicker 3s ease-in-out infinite;
+}
+
+.circuit-pulse {
+  animation: circuit-pulse 2s ease-in-out infinite;
+}
+
+.float-panel {
+  animation: float-panel 6s ease-in-out infinite;
+}
+
+.holographic-scan {
+  animation: holographic-scan 6s linear infinite;
+}
+
+/* Glass Effects */
+.holo-glass {
+  background: linear-gradient(135deg, 
+    rgba(0, 229, 255, 0.1) 0%, 
+    rgba(225, 68, 255, 0.05) 50%, 
+    rgba(167, 180, 198, 0.1) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 0 30px rgba(0, 229, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.crystal-glass {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Border Effects */
+.holo-border {
+  position: relative;
+}
+
+.holo-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, 
+    #00E5FF, #E144FF, #9D68FF, #00E5FF);
+  background-size: 400% 400%;
+  border-radius: inherit;
+  z-index: -1;
+  animation: gradient-rotation 3s linear infinite;
+  opacity: 0.6;
+}
+
+.holo-border::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+/* Text Effects */
+.neon-solid-cyan {
+  color: #00E5FF;
+  text-shadow: 
+    0 0 10px rgba(0, 229, 255, 0.8),
+    0 0 20px rgba(0, 229, 255, 0.6),
+    0 0 30px rgba(0, 229, 255, 0.4);
+}
+
+.neon-solid-magenta {
+  color: #E144FF;
+  text-shadow: 
+    0 0 10px rgba(225, 68, 255, 0.8),
+    0 0 20px rgba(225, 68, 255, 0.6),
+    0 0 30px rgba(225, 68, 255, 0.4);
+}
+
+/* Terminal/Code Text */
+.terminal-text {
+  font-family: var(--font-mono);
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.6);
+}
+
+/* Display/Headline */
+.display-text {
+  font-family: var(--font-display);
+  color: var(--color-primary);
+  text-shadow: 0 0 15px rgba(0, 229, 255, 0.8);
+}
+
+/* Body Text */
+.body-text {
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+/* Special Accent */
+.special-text {
+  font-family: var(--font-special);
+  color: var(--color-accent);
+}
