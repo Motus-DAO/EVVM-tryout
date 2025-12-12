@@ -302,3 +302,7 @@ Register a human-readable name like `gerry.motus` to create a recognizable ident
 
 The healthcare EVVM on Celo offers numerous use cases that can transform healthcare delivery. Starting with the Motus Name Service and basic patient records, the platform can expand to cover the full spectrum of healthcare needs while maintaining security, privacy, and compliance.
 
+
+
+
+

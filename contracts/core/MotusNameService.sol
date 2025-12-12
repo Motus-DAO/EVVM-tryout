@@ -3,12 +3,17 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import {SignatureRecover} from "@evvm/testnet-contracts/library/primitives/SignatureRecover.sol";
+import {AdvancedStrings} from "@evvm/testnet-contracts/library/utils/AdvancedStrings.sol";
+import {Evvm} from "@evvm/testnet-contracts/contracts/evvm/Evvm.sol";
 
 /**
  * @title MotusNameService
  * @notice Human-readable name service for the Motus healthcare EVVM
  * @dev Allows registration of .motus domains (e.g., gerry.motus)
  * @dev Supports both traditional payments and EVVM gasless transactions
+ * @dev Implements proper EVVM service signature validation and nonce management
  */
 interface IEvvm {
     function pay(
@@ -24,8 +29,11 @@ interface IEvvm {
         bytes memory signature
     ) external;
     
-    function getEvvmID() external view returns (string memory);
+    function getEvvmID() external view returns (uint256);
     function getEvvmMetadata() external view returns (address principalTokenAddress);
+    function isAddressStaker(address addr) external view returns (bool);
+    function getRewardAmount() external view returns (uint256);
+    function caPay(address to, address token, uint256 amount) external;
 }
 
 contract MotusNameService is Ownable, ReentrancyGuard {
@@ -99,7 +107,11 @@ contract MotusNameService is Ownable, ReentrancyGuard {
     // EVVM Integration
     address public evvmAddress;
     address public constant PRINCIPAL_TOKEN_ADDRESS = address(0x1); // EVVM Principal Token
+    address public constant ETH_ADDRESS = address(0); // Native ETH/CELO
     bool public evvmEnabled = false;
+    
+    // Service signature nonce tracking (prevents replay attacks)
+    mapping(address => mapping(uint256 => bool)) public usedServiceNonces;
 
     // Events for gasless transactions
     event DomainRegisteredGasless(
@@ -126,6 +138,16 @@ contract MotusNameService is Ownable, ReentrancyGuard {
     );
 
     constructor(address initialOwner) Ownable(initialOwner) {}
+    
+    /**
+     * @notice Modifier to verify service nonce is available (not used)
+     * @param user The user address
+     * @param nonce The nonce to check
+     */
+    modifier verifyIfNonceIsAvailable(address user, uint256 nonce) {
+        require(!usedServiceNonces[user][nonce], "Nonce already used");
+        _;
+    }
 
     /**
      * @notice Register a new .motus domain (traditional payment)
@@ -187,10 +209,12 @@ contract MotusNameService is Ownable, ReentrancyGuard {
      * @param metadata Optional metadata JSON string
      * @param user Address of the user registering (signer of the transaction)
      * @param amount Amount in Principal Tokens to pay
-     * @param priorityFee Priority fee for the relayer
-     * @param nonce Nonce for the EVVM transaction
-     * @param priorityFlag True for async, false for sync
-     * @param signature EIP-191 signature from the user
+     * @param nonce Service nonce to prevent replay attacks
+     * @param signature Service signature authorizing this registration
+     * @param priorityFee_EVVM Priority fee for the EVVM payment transaction
+     * @param nonce_EVVM Nonce for the EVVM payment transaction
+     * @param priorityFlag_EVVM True for async, false for sync EVVM payment
+     * @param signature_EVVM EIP-191 signature for the EVVM payment
      */
     function registerGasless(
         string memory name,
@@ -199,11 +223,13 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         string memory metadata,
         address user,
         uint256 amount,
-        uint256 priorityFee,
         uint256 nonce,
-        bool priorityFlag,
-        bytes memory signature
-    ) external nonReentrant {
+        bytes memory signature,
+        uint256 priorityFee_EVVM,
+        uint256 nonce_EVVM,
+        bool priorityFlag_EVVM,
+        bytes memory signature_EVVM
+    ) external nonReentrant verifyIfNonceIsAvailable(user, nonce) {
         require(evvmEnabled && evvmAddress != address(0), "EVVM not enabled");
         require(isValidName(name), "Invalid name format");
         require(duration >= MIN_REGISTRATION_DURATION, "Duration too short");
@@ -215,9 +241,32 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         uint256 fee = calculateRegistrationFee(name, duration);
         require(amount >= fee, "Insufficient payment");
         
-        // Process EVVM payment
-        _makePay(user, amount, priorityFee, nonce, priorityFlag, signature);
+        // 1. Get EVVM ID
+        uint256 evvmID = Evvm(evvmAddress).getEvvmID();
         
+        // 2. Validate service signature
+        string memory params = string.concat(
+            name, ",",
+            Strings.toString(duration), ",",
+            Strings.toString(amount), ",",
+            Strings.toString(nonce)
+        );
+        
+        require(
+            SignatureRecover.signatureVerification(
+                Strings.toString(evvmID),
+                "registerGasless",
+                params,
+                signature,
+                user
+            ),
+            "Invalid service signature"
+        );
+        
+        // 3. Process EVVM payment
+        _makePay(user, amount, priorityFee_EVVM, nonce_EVVM, priorityFlag_EVVM, signature_EVVM);
+        
+        // 4. Register domain
         uint256 expirationTime = block.timestamp + duration;
         
         domains[nameHash] = Domain({
@@ -238,6 +287,22 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         if (reverseLookup[user] == bytes32(0)) {
             reverseLookup[user] = nameHash;
         }
+        
+        // 5. Reward fisher if contract is staker
+        if (Evvm(evvmAddress).isAddressStaker(address(this))) {
+            if (priorityFee_EVVM > 0) {
+                IEvvm(evvmAddress).caPay(msg.sender, ETH_ADDRESS, priorityFee_EVVM);
+            }
+            // Send reward to executor
+            IEvvm(evvmAddress).caPay(
+                msg.sender,
+                PRINCIPAL_TOKEN_ADDRESS,
+                Evvm(evvmAddress).getRewardAmount() / 2
+            );
+        }
+        
+        // 6. Mark nonce as used
+        usedServiceNonces[user][nonce] = true;
         
         emit DomainRegisteredGasless(nameHash, name, user, msg.sender, expirationTime);
         emit DomainRegistered(nameHash, name, user, resolver, expirationTime);
@@ -276,21 +341,25 @@ contract MotusNameService is Ownable, ReentrancyGuard {
      * @param duration Additional duration in seconds
      * @param user Address of the domain owner (signer)
      * @param amount Amount in Principal Tokens to pay
-     * @param priorityFee Priority fee for the relayer
-     * @param nonce Nonce for the EVVM transaction
-     * @param priorityFlag True for async, false for sync
-     * @param signature EIP-191 signature from the user
+     * @param nonce Service nonce to prevent replay attacks
+     * @param signature Service signature authorizing this renewal
+     * @param priorityFee_EVVM Priority fee for the EVVM payment transaction
+     * @param nonce_EVVM Nonce for the EVVM payment transaction
+     * @param priorityFlag_EVVM True for async, false for sync EVVM payment
+     * @param signature_EVVM EIP-191 signature for the EVVM payment
      */
     function renewGasless(
         bytes32 nameHash,
         uint256 duration,
         address user,
         uint256 amount,
-        uint256 priorityFee,
         uint256 nonce,
-        bool priorityFlag,
-        bytes memory signature
-    ) external nonReentrant {
+        bytes memory signature,
+        uint256 priorityFee_EVVM,
+        uint256 nonce_EVVM,
+        bool priorityFlag_EVVM,
+        bytes memory signature_EVVM
+    ) external nonReentrant verifyIfNonceIsAvailable(user, nonce) {
         require(evvmEnabled && evvmAddress != address(0), "EVVM not enabled");
         Domain storage domain = domains[nameHash];
         require(domain.active, "Domain not registered");
@@ -302,10 +371,49 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         uint256 fee = calculateRenewalFee(duration);
         require(amount >= fee, "Insufficient payment");
         
-        // Process EVVM payment
-        _makePay(user, amount, priorityFee, nonce, priorityFlag, signature);
+        // 1. Get EVVM ID
+        uint256 evvmID = Evvm(evvmAddress).getEvvmID();
         
+        // 2. Validate service signature
+        string memory params = string.concat(
+            AdvancedStrings.bytes32ToString(nameHash), ",",
+            Strings.toString(duration), ",",
+            Strings.toString(amount), ",",
+            Strings.toString(nonce)
+        );
+        
+        require(
+            SignatureRecover.signatureVerification(
+                Strings.toString(evvmID),
+                "renewGasless",
+                params,
+                signature,
+                user
+            ),
+            "Invalid service signature"
+        );
+        
+        // 3. Process EVVM payment
+        _makePay(user, amount, priorityFee_EVVM, nonce_EVVM, priorityFlag_EVVM, signature_EVVM);
+        
+        // 4. Renew domain
         domain.expirationTime += duration;
+        
+        // 5. Reward fisher if contract is staker
+        if (Evvm(evvmAddress).isAddressStaker(address(this))) {
+            if (priorityFee_EVVM > 0) {
+                IEvvm(evvmAddress).caPay(msg.sender, ETH_ADDRESS, priorityFee_EVVM);
+            }
+            // Send reward to executor
+            IEvvm(evvmAddress).caPay(
+                msg.sender,
+                PRINCIPAL_TOKEN_ADDRESS,
+                Evvm(evvmAddress).getRewardAmount() / 2
+            );
+        }
+        
+        // 6. Mark nonce as used
+        usedServiceNonces[user][nonce] = true;
         
         string memory name = getNameFromHash(nameHash);
         emit DomainRenewedGasless(nameHash, name, msg.sender, domain.expirationTime);
@@ -348,13 +456,16 @@ contract MotusNameService is Ownable, ReentrancyGuard {
      * @param nameHash The hash of the domain name
      * @param newOwner The new owner address
      * @param user Address of the current owner (signer)
+     * @param nonce Service nonce to prevent replay attacks
+     * @param signature Service signature authorizing this transfer
      */
     function transferGasless(
         bytes32 nameHash,
         address newOwner,
         address user,
-        bytes memory /* signature - reserved for future signature verification */
-    ) external {
+        uint256 nonce,
+        bytes memory signature
+    ) external verifyIfNonceIsAvailable(user, nonce) {
         require(evvmEnabled && evvmAddress != address(0), "EVVM not enabled");
         Domain storage domain = domains[nameHash];
         require(domain.active, "Domain not registered");
@@ -362,9 +473,28 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         require(block.timestamp < domain.expirationTime, "Domain expired");
         require(newOwner != address(0), "Invalid new owner");
         
-        // Note: Signature verification can be added in production
-        // For now, the executor (relayer) is trusted to call this on behalf of the user
+        // 1. Get EVVM ID
+        uint256 evvmID = Evvm(evvmAddress).getEvvmID();
         
+        // 2. Validate service signature
+        string memory params = string.concat(
+            AdvancedStrings.bytes32ToString(nameHash), ",",
+            AdvancedStrings.addressToString(newOwner), ",",
+            Strings.toString(nonce)
+        );
+        
+        require(
+            SignatureRecover.signatureVerification(
+                Strings.toString(evvmID),
+                "transferGasless",
+                params,
+                signature,
+                user
+            ),
+            "Invalid service signature"
+        );
+        
+        // 3. Transfer domain
         address oldOwner = domain.owner;
         domain.owner = newOwner;
         
@@ -379,6 +509,9 @@ contract MotusNameService is Ownable, ReentrancyGuard {
         if (reverseLookup[newOwner] == bytes32(0)) {
             reverseLookup[newOwner] = nameHash;
         }
+        
+        // 4. Mark nonce as used
+        usedServiceNonces[user][nonce] = true;
         
         string memory name = getNameFromHash(nameHash);
         emit DomainTransferredGasless(nameHash, name, oldOwner, newOwner, msg.sender);
@@ -612,9 +745,9 @@ contract MotusNameService is Ownable, ReentrancyGuard {
      * @param user Address making the payment
      * @param amount Amount in Principal Tokens
      * @param priorityFee Priority fee for relayer
-     * @param nonce Nonce for the transaction
+     * @param nonce Nonce for the EVVM transaction
      * @param priorityFlag True for async, false for sync
-     * @param signature EIP-191 signature
+     * @param signature EIP-191 signature for EVVM payment
      */
     function _makePay(
         address user,
@@ -636,6 +769,16 @@ contract MotusNameService is Ownable, ReentrancyGuard {
             address(this),
             signature
         );
+    }
+    
+    /**
+     * @notice Check if a service nonce has been used
+     * @param user The user address
+     * @param nonce The nonce to check
+     * @return used True if the nonce has been used
+     */
+    function isServiceNonceUsed(address user, uint256 nonce) external view returns (bool) {
+        return usedServiceNonces[user][nonce];
     }
 }
 

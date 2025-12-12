@@ -361,3 +361,7 @@ Integrating Walrus with the healthcare EVVM on Celo provides:
 
 This architecture enables a truly interoperable healthcare system that respects patient privacy while enabling seamless data exchange.
 
+
+
+
+

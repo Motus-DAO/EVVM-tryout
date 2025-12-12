@@ -18,6 +18,13 @@ const config: HardhatUserConfig = {
       viaIR: true, // Enable IR-based code generation to fix "stack too deep" errors
     },
   },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts",
+    root: "./",
+  },
   networks: {
     hardhat: {
       chainId: 1337,
