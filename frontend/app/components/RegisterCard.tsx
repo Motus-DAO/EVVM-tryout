@@ -99,9 +99,16 @@ export function RegisterCard({ account, onTx }: RegisterCardProps) {
       // If fee is 0, we can still use gasless transactions (no payment needed)
       const isFree = calculatedFee === BigInt(0)
 
+      // These are needed across multiple gasless steps (balance check + relayer call)
+      let userAddress: string | null = null
+      let signerInstance: ethers.Signer | null = null
+
       if (useGasless && evvmEnabled && evvmAddress) {
         const browserProvider = provider as ethers.BrowserProvider
-        const signerInstance = await browserProvider.getSigner()
+        signerInstance = await browserProvider.getSigner()
+        
+        // Get user address first (needed for balance check)
+        userAddress = await signerInstance.getAddress()
         
         // Validate EVVM is properly configured
         if (!evvmAddress || evvmAddress === ethers.ZeroAddress) {
@@ -146,7 +153,7 @@ export function RegisterCard({ account, onTx }: RegisterCardProps) {
             const evvmAbi = ['function getBalance(address user, address token) view returns (uint256)']
             const evvmContract = new ethers.Contract(evvmAddress, evvmAbi, provider)
             const principalToken = '0x0000000000000000000000000000000000000001' // MATE token
-            const balance = await evvmContract.getBalance(userAddress, principalToken)
+            const balance = await evvmContract.getBalance(userAddress!, principalToken)
             const requiredAmount = calculatedFee + BigInt(0) // priorityFee is 0 in this case
             
             if (balance < requiredAmount) {
@@ -165,9 +172,6 @@ export function RegisterCard({ account, onTx }: RegisterCardProps) {
             console.warn('Could not check EVVM balance:', err.message)
           }
         }
-        
-        // Get user address
-        const userAddress = await signerInstance.getAddress()
         
         // Create gasless registration data
         // Even if fee is 0, we still need to create the signatures (EVVM handles zero payments)
@@ -201,12 +205,12 @@ export function RegisterCard({ account, onTx }: RegisterCardProps) {
         const serviceNonce = gaslessData.args[6] as bigint
         const txHash = await sendToRelayer(
           RELAYER_URL,
-          userAddress,
+          userAddress!,
           CONTRACT_ADDRESS,
           gaslessData.functionName,
           gaslessData.args,
           serviceNonce,
-          signerInstance
+          signerInstance!
         )
         
         onTx?.(txHash)
