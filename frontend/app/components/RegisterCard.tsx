@@ -26,6 +26,15 @@ export function RegisterCard({ account, onTx }: RegisterCardProps) {
     checkEvvmStatus().catch(console.error)
   }, [])
 
+  // Reset state when account changes (wallet switch)
+  useEffect(() => {
+    // Clear messages and fees when wallet changes
+    setMessage(null)
+    setFee(null)
+    // Optionally reset gasless option (user can re-enable if needed)
+    // setUseGasless(false) // Commented out - let user keep their preference
+  }, [account])
+
   const getDurationSeconds = () => BigInt(parseInt(duration)) * BigInt(365 * 24 * 60 * 60)
 
   async function checkEvvmStatus() {
